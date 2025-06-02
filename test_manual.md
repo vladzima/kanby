@@ -39,7 +39,8 @@ Verify that Kanby properly saves data when interrupted with Ctrl+C and that data
 2. **Perform multiple operations**:
    - Add 2-3 more tasks
    - Edit one task (press `e`)
-   - Move one task to "In Progress" (press `m`, then `2`)
+   - Move one task to "In Progress" (press `m`, then `→`, then `Enter`)
+   - Reorder a task within a column (press `m`, then `↑` or `↓`, then `Enter`)
    - Delete one task (press `d`, confirm with `y`)
 
 3. **Each operation should show "💾 Saved"**
@@ -99,7 +100,7 @@ Verify that Kanby properly saves data when interrupted with Ctrl+C and that data
 2. **Explore the demo projects**:
    - Press `p` to see "Work Project", "Personal", "Home Improvement"
    - Navigate through different tasks
-   - Try editing/moving some tasks
+   - Try editing/moving some tasks (use `m` + arrows + `Enter`)
 
 3. **Exit with Ctrl+C**
 

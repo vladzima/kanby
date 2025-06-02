@@ -65,7 +65,7 @@ kanby --help
 | `a` | Add new task |
 | `e` | Edit selected task |
 | `d` | Delete selected task |
-| `m` | Move task between columns |
+| `m` | Move task (+ arrow keys) |
 
 ### Project Management
 | Key | Action |
@@ -93,9 +93,11 @@ kanby --help
 
 ### Moving Tasks
 1. Select a task with arrow keys
-2. Press `m` to move
-3. Enter column number (1, 2, or 3)
-4. Task moves to the selected column
+2. Press `m` to enter move mode
+3. Use arrow keys to move:
+   - `←` `→` : Move between columns
+   - `↑` `↓` : Reorder within current column
+4. Press `Enter` to confirm or `Esc` to cancel
 
 ### Priority Levels
 - **Low**: Green color coding
