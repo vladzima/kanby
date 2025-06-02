@@ -1,0 +1,105 @@
+{
+    "Work Project": {
+        "To Do": [
+            {
+                "id": "work001",
+                "title": "Review quarterly reports",
+                "priority": "High"
+            },
+            {
+                "id": "work002", 
+                "title": "Update team documentation",
+                "priority": "Mid"
+            },
+            {
+                "id": "work003",
+                "title": "Schedule client meeting",
+                "priority": "Low"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "work004",
+                "title": "Implement new feature",
+                "priority": "High"
+            },
+            {
+                "id": "work005",
+                "title": "Fix bug in payment system",
+                "priority": "High"
+            }
+        ],
+        "Done": [
+            {
+                "id": "work006",
+                "title": "Deploy to staging environment",
+                "priority": "Mid"
+            }
+        ]
+    },
+    "Personal": {
+        "To Do": [
+            {
+                "id": "pers001",
+                "title": "Buy groceries",
+                "priority": "Mid"
+            },
+            {
+                "id": "pers002",
+                "title": "Call dentist for appointment",
+                "priority": "Low"
+            },
+            {
+                "id": "pers003",
+                "title": "Plan weekend trip",
+                "priority": "Low"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "pers004",
+                "title": "Learn Python curses library",
+                "priority": "Mid"
+            }
+        ],
+        "Done": [
+            {
+                "id": "pers005",
+                "title": "Finish reading book",
+                "priority": "Low"
+            },
+            {
+                "id": "pers006",
+                "title": "Install Kanby",
+                "priority": "High"
+            }
+        ]
+    },
+    "Home Improvement": {
+        "To Do": [
+            {
+                "id": "home001",
+                "title": "Paint living room",
+                "priority": "Mid"
+            },
+            {
+                "id": "home002",
+                "title": "Fix leaky faucet",
+                "priority": "High"
+            },
+            {
+                "id": "home003",
+                "title": "Organize garage",
+                "priority": "Low"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "home004",
+                "title": "Install new light fixtures",
+                "priority": "Mid"
+            }
+        ],
+        "Done": []
+    }
+}

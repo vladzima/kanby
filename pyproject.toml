@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kanby"
+version = "1.0.0"
+authors = [
+    {name = "Kanby Team", email = "team@kanby.dev"},
+]
+description = "A beautiful terminal-based Kanban board"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console :: Curses",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: Terminals",
+    "Topic :: Utilities",
+]
+keywords = ["kanban", "terminal", "productivity", "todo", "curses", "cli"]
+
+[project.urls]
+Homepage = "https://github.com/kanby-team/kanby"
+Repository = "https://github.com/kanby-team/kanby"
+Issues = "https://github.com/kanby-team/kanby/issues"
+
+[project.scripts]
+kanby = "kanby.main:cli_main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kanby*"]

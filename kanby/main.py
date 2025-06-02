@@ -1,0 +1,829 @@
+import curses
+import curses.textpad
+import json
+import os
+import time
+import uuid
+import argparse
+import sys
+import signal
+
+# --- Package Info ---
+__version__ = "1.0.0"
+__author__ = "Kanby Team"
+__description__ = "A beautiful terminal-based Kanban board"
+
+# --- Configuration ---
+DATA_FILE = "kanby_data.json"
+DEFAULT_COLUMNS = ["To Do", "In Progress", "Done"]
+DEFAULT_PROJECT_NAME = "Default Project"
+DEFAULT_COLUMN_WIDTH = 30
+MIN_TASK_DISPLAY_HEIGHT = 3 # For Priority, Title, Separator
+EMPTY_COLUMN_TEXT = "[No tasks]"
+PRIORITIES = ["Low", "Mid", "High"]
+DEFAULT_PRIORITY = "Mid"
+
+# --- Color Pair Definitions ---
+COLOR_PAIR_PROJECT_NAME = 1
+COLOR_PAIR_HEADER = 2
+COLOR_PAIR_ACTIVE_HEADER = 3
+COLOR_PAIR_SELECTED_TASK = 4
+COLOR_PAIR_MESSAGE_INFO = 5
+COLOR_PAIR_MESSAGE_ERROR = 6
+COLOR_PAIR_BORDER = 7
+COLOR_PAIR_MODAL_BORDER = 9
+COLOR_PAIR_MODAL_TEXT = 10
+COLOR_PAIR_MODAL_SELECTED_ITEM = 11
+COLOR_PAIR_MODAL_HEADER = 12
+COLOR_PAIR_PRIO_LOW = 13
+COLOR_PAIR_PRIO_MID = 14
+COLOR_PAIR_PRIO_HIGH = 15
+
+# Splash screen colors
+COLOR_PAIR_SPLASH_LOGO = 20
+COLOR_PAIR_SPLASH_TAGLINE = 21
+COLOR_PAIR_SPLASH_VERSION = 22
+COLOR_PAIR_SPLASH_LOADING = 23
+
+# --- Helper Functions ---
+def show_splash_screen(stdscr):
+    """Display a cool splash screen on startup."""
+    # Get terminal dimensions
+    height, width = stdscr.getmaxyx()
+    
+    # Kanby ASCII art
+    splash_art = [
+        "██╗  ██╗ █████╗ ███╗   ██╗██████╗ ██╗   ██╗",
+        "██║ ██╔╝██╔══██╗████╗  ██║██╔══██╗╚██╗ ██╔╝",
+        "█████╔╝ ███████║██╔██╗ ██║██████╔╝ ╚████╔╝ ",
+        "██╔═██╗ ██╔══██║██║╚██╗██║██╔══██╗  ╚██╔╝  ",
+        "██║  ██╗██║  ██║██║ ╚████║██████╔╝   ██║   ",
+        "╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝    ╚═╝   "
+    ]
+    
+    tagline = "Your Beautiful Terminal Kanban Board"
+    version_text = f"v{__version__}"
+    loading_text = "Loading your projects..."
+    
+    # Clear screen
+    stdscr.clear()
+    
+    # Calculate positions for centering
+    art_start_y = max(0, (height - len(splash_art) - 6) // 2)
+    
+    # Initialize colors for splash
+    if curses.has_colors():
+        try:
+            curses.init_pair(COLOR_PAIR_SPLASH_LOGO, curses.COLOR_CYAN, -1)
+            curses.init_pair(COLOR_PAIR_SPLASH_TAGLINE, curses.COLOR_YELLOW, -1)
+            curses.init_pair(COLOR_PAIR_SPLASH_VERSION, curses.COLOR_GREEN, -1)
+            curses.init_pair(COLOR_PAIR_SPLASH_LOADING, curses.COLOR_MAGENTA, -1)
+        except curses.error:
+            pass
+    
+    try:
+        # Draw ASCII art
+        for i, line in enumerate(splash_art):
+            if art_start_y + i < height - 1:
+                x_pos = max(0, (width - len(line)) // 2)
+                if curses.has_colors():
+                    stdscr.addstr(art_start_y + i, x_pos, line, curses.color_pair(COLOR_PAIR_SPLASH_LOGO) | curses.A_BOLD)
+                else:
+                    stdscr.addstr(art_start_y + i, x_pos, line, curses.A_BOLD)
+        
+        # Draw tagline
+        tagline_y = art_start_y + len(splash_art) + 1
+        if tagline_y < height - 3:
+            x_pos = max(0, (width - len(tagline)) // 2)
+            if curses.has_colors():
+                stdscr.addstr(tagline_y, x_pos, tagline, curses.color_pair(COLOR_PAIR_SPLASH_TAGLINE))
+            else:
+                stdscr.addstr(tagline_y, x_pos, tagline)
+        
+        # Draw version
+        version_y = tagline_y + 1
+        if version_y < height - 2:
+            x_pos = max(0, (width - len(version_text)) // 2)
+            if curses.has_colors():
+                stdscr.addstr(version_y, x_pos, version_text, curses.color_pair(COLOR_PAIR_SPLASH_VERSION))
+            else:
+                stdscr.addstr(version_y, x_pos, version_text)
+        
+        # Draw loading text with animation
+        loading_y = version_y + 2
+        if loading_y < height - 1:
+            x_pos = max(0, (width - len(loading_text)) // 2)
+            
+            # Animated loading
+            for i in range(4):
+                dots = "." * i
+                animated_text = loading_text + dots
+                try:
+                    if curses.has_colors():
+                        stdscr.addstr(loading_y, x_pos, animated_text.ljust(len(loading_text) + 3), curses.color_pair(COLOR_PAIR_SPLASH_LOADING))
+                    else:
+                        stdscr.addstr(loading_y, x_pos, animated_text.ljust(len(loading_text) + 3))
+                    stdscr.refresh()
+                    time.sleep(0.3)
+                except curses.error:
+                    pass
+        
+    except curses.error:
+        # If screen is too small or other curses error, just show a simple message
+        stdscr.clear()
+        try:
+            stdscr.addstr(0, 0, "KANBY - Terminal Kanban Board")
+            stdscr.addstr(1, 0, f"Version {__version__}")
+            stdscr.addstr(2, 0, "Loading...")
+            stdscr.refresh()
+            time.sleep(1.0)
+        except curses.error:
+            pass
+
+def generate_id():
+    """Generates a unique ID for tasks."""
+    return str(uuid.uuid4())[:8]
+
+def load_data():
+    """Loads all projects and their tasks from the JSON data file."""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r') as f:
+                data = json.load(f)
+            # Ensure data is not empty and has the new project structure
+            if not data:
+                 data = {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
+            # Basic check for old format (dictionary of lists) vs new (dictionary of dictionaries of lists)
+            # and migrates if necessary.
+            elif not all(isinstance(val, dict) and DEFAULT_COLUMNS[0] in val for val in data.values()):
+                migrated_data = {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
+                # Attempt to migrate tasks from old format if it looks like column names are keys
+                for col_name_old_format, tasks_list in data.items():
+                    if col_name_old_format in DEFAULT_COLUMNS: # If old key is a default column name
+                         migrated_data[DEFAULT_PROJECT_NAME][col_name_old_format] = tasks_list
+                    elif isinstance(tasks_list, list): # If it's a list of tasks not under a known column
+                         # Add these tasks to the first default column of the default project
+                         migrated_data[DEFAULT_PROJECT_NAME][DEFAULT_COLUMNS[0]].extend(
+                            task for task in tasks_list if isinstance(task, dict) # Ensure tasks are dicts
+                         )
+                data = migrated_data
+
+            # Ensure all default columns exist for each project and tasks have IDs and priorities
+            final_data = {}
+            project_keys = list(data.keys()) # Get project names
+            if not project_keys: # If there are no projects after loading (e.g. empty file or failed migration)
+                project_keys = [DEFAULT_PROJECT_NAME]
+                data[DEFAULT_PROJECT_NAME] = {} # Ensure default project key exists if data was empty
+
+            for p_name in project_keys:
+                project_content = data.get(p_name, {}) # Get current project's content or empty dict
+                final_data[p_name] = {} # Initialize project in final_data
+                for col_name in DEFAULT_COLUMNS:
+                    final_data[p_name][col_name] = [] # Initialize column in project
+                    tasks_in_col = project_content.get(col_name, []) # Get tasks for this column or empty list
+                    for task in tasks_in_col:
+                        if isinstance(task, dict): # Ensure task is a dictionary
+                            if "id" not in task:
+                                task["id"] = generate_id()
+                            if "priority" not in task:
+                                task["priority"] = DEFAULT_PRIORITY
+                            final_data[p_name][col_name].append(task)
+
+            if not final_data: # Should be caught by project_keys check, but as a fallback
+                final_data = {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
+            return final_data
+        except json.JSONDecodeError:
+            # If file is corrupted or not valid JSON, return a default structure
+            return {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
+    # If file doesn't exist, return a default structure
+    return {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
+
+
+def save_data(all_projects_data):
+    """Saves all projects and tasks to the JSON data file."""
+    with open(DATA_FILE, 'w') as f:
+        json.dump(all_projects_data, f, indent=4)
+
+def get_input(stdscr, y, x, prompt, initial_value="", color_pair=0, input_width=30):
+    """Gets input from the user at a specified position with a prompt."""
+    try:
+        stdscr.addstr(y, x, prompt, color_pair)
+        stdscr.refresh()
+        # Create a text input window
+        input_win = curses.newwin(1, input_width, y, x + len(prompt))
+        input_win.addstr(0, 0, initial_value)
+        input_win.refresh()
+        textbox = curses.textpad.Textbox(input_win)
+        
+        # Enable editing
+        curses.curs_set(1)  # Show cursor
+        result = textbox.edit().strip()
+        curses.curs_set(0)  # Hide cursor
+        
+        return result
+    except curses.error:
+        curses.curs_set(0)
+        return initial_value
+
+def display_message(stdscr, message, duration=1.5, color_pair=0):
+    """Displays a temporary message at the bottom of the screen."""
+    height, width = stdscr.getmaxyx()
+    try:
+        # Clear the message area
+        stdscr.addstr(height - 1, 0, " " * (width - 1))
+        # Display the message
+        stdscr.addstr(height - 1, 0, message[:width-1], color_pair)
+        stdscr.refresh()
+        time.sleep(duration)
+        # Clear the message
+        stdscr.addstr(height - 1, 0, " " * (width - 1))
+        stdscr.refresh()
+    except curses.error:
+        pass
+
+def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_colors):
+    """Display a modal for managing projects."""
+    height, width = stdscr.getmaxyx()
+    
+    # Modal dimensions
+    modal_height = min(20, height - 4)
+    modal_width = min(60, width - 4)
+    modal_y = (height - modal_height) // 2
+    modal_x = (width - modal_width) // 2
+    
+    # Create modal window
+    modal_win = curses.newwin(modal_height, modal_width, modal_y, modal_x)
+    
+    project_names = list(all_projects_data.keys())
+    selected_idx = 0
+    if current_project_name in project_names:
+        selected_idx = project_names.index(current_project_name)
+    
+    while True:
+        modal_win.clear()
+        
+        # Draw border
+        if has_colors:
+            modal_win.box(curses.ACS_VLINE, curses.ACS_HLINE)
+            modal_win.addstr(0, 2, " Project Manager ", curses.color_pair(COLOR_PAIR_MODAL_HEADER) | curses.A_BOLD)
+        else:
+            modal_win.box()
+            modal_win.addstr(0, 2, " Project Manager ", curses.A_BOLD)
+        
+        # Instructions
+        instructions = [
+            "↑/↓: Navigate",
+            "Enter: Select project",
+            "n: New project",
+            "d: Delete project",
+            "q: Cancel"
+        ]
+        
+        start_y = 2
+        for i, instruction in enumerate(instructions):
+            if start_y + i < modal_height - 1:
+                if has_colors:
+                    modal_win.addstr(start_y + i, 2, instruction, curses.color_pair(COLOR_PAIR_MODAL_TEXT))
+                else:
+                    modal_win.addstr(start_y + i, 2, instruction)
+        
+        # Project list
+        list_start_y = start_y + len(instructions) + 1
+        if list_start_y < modal_height - 1:
+            if has_colors:
+                modal_win.addstr(list_start_y, 2, "Projects:", curses.color_pair(COLOR_PAIR_MODAL_HEADER) | curses.A_BOLD)
+            else:
+                modal_win.addstr(list_start_y, 2, "Projects:", curses.A_BOLD)
+            
+            for i, project_name in enumerate(project_names):
+                if list_start_y + 1 + i < modal_height - 1:
+                    display_name = project_name[:modal_width - 6]  # Truncate if too long
+                    if i == selected_idx:
+                        if has_colors:
+                            modal_win.addstr(list_start_y + 1 + i, 2, f"> {display_name}", curses.color_pair(COLOR_PAIR_MODAL_SELECTED_ITEM))
+                        else:
+                            modal_win.addstr(list_start_y + 1 + i, 2, f"> {display_name}", curses.A_REVERSE)
+                    else:
+                        if has_colors:
+                            modal_win.addstr(list_start_y + 1 + i, 2, f"  {display_name}", curses.color_pair(COLOR_PAIR_MODAL_TEXT))
+                        else:
+                            modal_win.addstr(list_start_y + 1 + i, 2, f"  {display_name}")
+        
+        modal_win.refresh()
+        
+        key = modal_win.getch()
+        
+        if key == curses.KEY_UP and selected_idx > 0:
+            selected_idx -= 1
+        elif key == curses.KEY_DOWN and selected_idx < len(project_names) - 1:
+            selected_idx += 1
+        elif key == ord('\n') or key == curses.KEY_ENTER:
+            # Select project
+            if project_names:
+                return project_names[selected_idx]
+            return current_project_name
+        elif key == ord('n') or key == ord('N'):
+            # Create new project
+            new_name = get_input(stdscr, height - 2, 0, "New project name: ", "", 
+                               curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 30)
+            if new_name and new_name not in all_projects_data:
+                all_projects_data[new_name] = {col: [] for col in DEFAULT_COLUMNS}
+                project_names = list(all_projects_data.keys())
+                selected_idx = project_names.index(new_name)
+                # Save data after project creation
+                save_data(all_projects_data)
+                display_message(stdscr, f"Created project: {new_name}", 1.0, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+            elif new_name in all_projects_data:
+                display_message(stdscr, "Project already exists!", 1.5, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+        elif key == ord('d') or key == ord('D'):
+            # Delete project (with confirmation)
+            if len(project_names) > 1:
+                project_to_delete = project_names[selected_idx]
+                confirm = get_input(stdscr, height - 2, 0, f"Delete '{project_to_delete}'? (y/N): ", "", 
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0, 5)
+                if confirm.lower() == 'y':
+                    del all_projects_data[project_to_delete]
+                    project_names = list(all_projects_data.keys())
+                    if selected_idx >= len(project_names):
+                        selected_idx = len(project_names) - 1
+                    # Save data after project deletion
+                    save_data(all_projects_data)
+                    display_message(stdscr, f"Deleted project: {project_to_delete}", 1.0, 
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    if project_to_delete == current_project_name:
+                        return project_names[selected_idx] if project_names else DEFAULT_PROJECT_NAME
+            else:
+                display_message(stdscr, "Cannot delete the last project!", 1.5, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+        elif key == ord('q') or key == ord('Q') or key == 27:  # ESC
+            return current_project_name
+
+def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, project_name, has_colors):
+    """Draws the Kanban board with tasks organized in columns."""
+    stdscr.clear()
+    height, width = stdscr.getmaxyx()
+    
+    # Display project name at the top
+    project_display = f"Project: {project_name}"
+    try:
+        if has_colors:
+            stdscr.addstr(0, 0, project_display, curses.color_pair(COLOR_PAIR_PROJECT_NAME) | curses.A_BOLD)
+        else:
+            stdscr.addstr(0, 0, project_display, curses.A_BOLD)
+    except curses.error:
+        pass
+    
+    # Calculate column width
+    col_width = max(DEFAULT_COLUMN_WIDTH, (width - len(DEFAULT_COLUMNS) - 1) // len(DEFAULT_COLUMNS))
+    
+    # Draw column headers
+    header_y = 2
+    for i, col_name in enumerate(DEFAULT_COLUMNS):
+        x_pos = i * (col_width + 1)
+        try:
+            # Draw column header
+            if i == current_column_idx:
+                if has_colors:
+                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.color_pair(COLOR_PAIR_ACTIVE_HEADER) | curses.A_BOLD)
+                else:
+                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.A_REVERSE | curses.A_BOLD)
+            else:
+                if has_colors:
+                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.color_pair(COLOR_PAIR_HEADER))
+                else:
+                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.A_BOLD)
+            
+            # Draw vertical separator
+            if i < len(DEFAULT_COLUMNS) - 1:
+                for y in range(header_y, height - 2):
+                    try:
+                        if has_colors:
+                            stdscr.addch(y, x_pos + col_width, '|', curses.color_pair(COLOR_PAIR_BORDER))
+                        else:
+                            stdscr.addch(y, x_pos + col_width, '|')
+                    except curses.error:
+                        pass
+        except curses.error:
+            pass
+    
+    # Draw horizontal line under headers
+    try:
+        line_y = header_y + 1
+        for x in range(width - 1):
+            try:
+                if has_colors:
+                    stdscr.addch(line_y, x, '-', curses.color_pair(COLOR_PAIR_BORDER))
+                else:
+                    stdscr.addch(line_y, x, '-')
+            except curses.error:
+                pass
+    except curses.error:
+        pass
+    
+    # Draw tasks in each column
+    task_start_y = header_y + 2
+    available_height = height - task_start_y - 2  # Leave space for instructions at bottom
+    
+    for col_idx, col_name in enumerate(DEFAULT_COLUMNS):
+        x_pos = col_idx * (col_width + 1)
+        tasks = tasks_data.get(col_name, [])
+        
+        if not tasks:
+            # Show empty column message
+            try:
+                if has_colors:
+                    stdscr.addstr(task_start_y + 1, x_pos + 2, EMPTY_COLUMN_TEXT, curses.color_pair(COLOR_PAIR_BORDER))
+                else:
+                    stdscr.addstr(task_start_y + 1, x_pos + 2, EMPTY_COLUMN_TEXT)
+            except curses.error:
+                pass
+        else:
+            # Calculate how many tasks can fit and which ones to display
+            max_tasks_to_show = available_height // MIN_TASK_DISPLAY_HEIGHT
+            
+            # If this is the current column, try to keep the selected task visible
+            if col_idx == current_column_idx and current_task_idx_in_col < len(tasks):
+                # Calculate scroll offset to keep selected task visible
+                start_task_idx = max(0, current_task_idx_in_col - max_tasks_to_show + 1)
+                if start_task_idx + max_tasks_to_show > len(tasks):
+                    start_task_idx = max(0, len(tasks) - max_tasks_to_show)
+            else:
+                start_task_idx = 0
+            
+            end_task_idx = min(len(tasks), start_task_idx + max_tasks_to_show)
+            
+            # Draw tasks
+            current_y = task_start_y
+            for task_idx in range(start_task_idx, end_task_idx):
+                task = tasks[task_idx]
+                
+                # Determine if this task is selected
+                is_selected = (col_idx == current_column_idx and task_idx == current_task_idx_in_col)
+                
+                # Get priority color
+                priority = task.get("priority", DEFAULT_PRIORITY)
+                priority_color = COLOR_PAIR_PRIO_MID
+                if priority == "Low":
+                    priority_color = COLOR_PAIR_PRIO_LOW
+                elif priority == "High":
+                    priority_color = COLOR_PAIR_PRIO_HIGH
+                
+                try:
+                    # Draw task priority
+                    priority_text = f"[{priority}]"
+                    if is_selected:
+                        if has_colors:
+                            stdscr.addstr(current_y, x_pos, priority_text[:col_width], curses.color_pair(COLOR_PAIR_SELECTED_TASK))
+                        else:
+                            stdscr.addstr(current_y, x_pos, priority_text[:col_width], curses.A_REVERSE)
+                    else:
+                        if has_colors:
+                            stdscr.addstr(current_y, x_pos, priority_text[:col_width], curses.color_pair(priority_color))
+                        else:
+                            stdscr.addstr(current_y, x_pos, priority_text[:col_width])
+                    
+                    # Draw task title
+                    title = task.get("title", "Untitled")
+                    title_text = title[:col_width]  # Truncate if too long
+                    if is_selected:
+                        if has_colors:
+                            stdscr.addstr(current_y + 1, x_pos, title_text.ljust(col_width), curses.color_pair(COLOR_PAIR_SELECTED_TASK))
+                        else:
+                            stdscr.addstr(current_y + 1, x_pos, title_text.ljust(col_width), curses.A_REVERSE)
+                    else:
+                        stdscr.addstr(current_y + 1, x_pos, title_text[:col_width])
+                    
+                    # Draw separator line
+                    separator = "-" * min(col_width, len(title_text))
+                    if is_selected:
+                        if has_colors:
+                            stdscr.addstr(current_y + 2, x_pos, separator, curses.color_pair(COLOR_PAIR_SELECTED_TASK))
+                        else:
+                            stdscr.addstr(current_y + 2, x_pos, separator, curses.A_REVERSE)
+                    else:
+                        if has_colors:
+                            stdscr.addstr(current_y + 2, x_pos, separator, curses.color_pair(COLOR_PAIR_BORDER))
+                        else:
+                            stdscr.addstr(current_y + 2, x_pos, separator)
+                    
+                except curses.error:
+                    pass
+                
+                current_y += MIN_TASK_DISPLAY_HEIGHT
+    
+    # Draw instructions at the bottom
+    instructions = "←→: Columns | ↑↓: Tasks | a: Add | e: Edit | d: Delete | m: Move | p: Projects | q: Quit"
+    try:
+        if has_colors:
+            stdscr.addstr(height - 1, 0, instructions[:width-1], curses.color_pair(COLOR_PAIR_MESSAGE_INFO))
+        else:
+            stdscr.addstr(height - 1, 0, instructions[:width-1])
+    except curses.error:
+        pass
+    
+    stdscr.refresh()
+
+def main(stdscr):
+    curses.curs_set(0) # Hide cursor
+    curses.noecho()    # Don't echo key presses
+    stdscr.keypad(True)# Enable keypad for special keys (arrows, etc.)
+    stdscr.nodelay(False) # Wait for user input
+
+    # Show splash screen
+    show_splash_screen(stdscr)
+
+    # Initialize colors if supported
+    has_colors = curses.has_colors()
+    if has_colors:
+        curses.start_color()
+        curses.use_default_colors() # Use terminal's default background
+        try:
+            # Define color pairs (foreground, background)
+            curses.init_pair(COLOR_PAIR_PROJECT_NAME, curses.COLOR_CYAN, -1)
+            curses.init_pair(COLOR_PAIR_HEADER, curses.COLOR_BLUE, -1)
+            curses.init_pair(COLOR_PAIR_ACTIVE_HEADER, curses.COLOR_GREEN, -1)
+            curses.init_pair(COLOR_PAIR_SELECTED_TASK, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+            curses.init_pair(COLOR_PAIR_MESSAGE_INFO, curses.COLOR_GREEN, -1)
+            curses.init_pair(COLOR_PAIR_MESSAGE_ERROR, curses.COLOR_RED, -1)
+            curses.init_pair(COLOR_PAIR_BORDER, curses.COLOR_WHITE, -1)
+            curses.init_pair(COLOR_PAIR_MODAL_BORDER, curses.COLOR_BLUE, -1)
+            curses.init_pair(COLOR_PAIR_MODAL_TEXT, curses.COLOR_WHITE, -1)
+            curses.init_pair(COLOR_PAIR_MODAL_SELECTED_ITEM, curses.COLOR_BLACK, curses.COLOR_CYAN)
+            curses.init_pair(COLOR_PAIR_MODAL_HEADER, curses.COLOR_YELLOW, -1)
+            curses.init_pair(COLOR_PAIR_PRIO_LOW, curses.COLOR_GREEN, -1)
+            curses.init_pair(COLOR_PAIR_PRIO_MID, curses.COLOR_YELLOW, -1)
+            curses.init_pair(COLOR_PAIR_PRIO_HIGH, curses.COLOR_RED, -1)
+        except curses.error: has_colors = False # Fallback if colors can't be initialized
+
+    all_projects_data = load_data()
+    project_names_list = list(all_projects_data.keys())
+    current_project_name = project_names_list[0] if project_names_list else DEFAULT_PROJECT_NAME
+
+    # Ensure the current project exists in the data
+    if current_project_name not in all_projects_data:
+        all_projects_data[current_project_name] = {col: [] for col in DEFAULT_COLUMNS}
+
+    current_column_idx = 0  # Start in the first column
+    current_task_idx_in_col = 0  # Start with the first task in the column
+    
+    # Auto-save helper function
+    def auto_save(show_message=False):
+        try:
+            save_data(all_projects_data)
+            if show_message:
+                try:
+                    height, width = stdscr.getmaxyx()
+                    stdscr.addstr(height - 1, width - 10, "💾 Saved", 
+                                curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    stdscr.refresh()
+                    time.sleep(0.3)
+                except curses.error:
+                    pass
+        except Exception as e:
+            # If save fails, we don't want to crash the app
+            pass
+    
+    # Set up signal handler for Ctrl+C
+    def signal_handler(signum, frame):
+        auto_save()
+        curses.nocbreak()
+        curses.keypad(False)
+        curses.echo()
+        curses.endwin()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+
+    while True:
+        # Get current project's tasks
+        tasks_data = all_projects_data[current_project_name]
+        
+        # Ensure current indices are valid
+        if current_column_idx >= len(DEFAULT_COLUMNS):
+            current_column_idx = 0
+        
+        current_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
+        if current_task_idx_in_col >= len(current_col_tasks):
+            current_task_idx_in_col = max(0, len(current_col_tasks) - 1)
+        
+        # Draw the board
+        draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
+        
+        # Get user input
+        key = stdscr.getch()
+        
+        # Handle navigation
+        if key == curses.KEY_LEFT:
+            current_column_idx = (current_column_idx - 1) % len(DEFAULT_COLUMNS)
+            # Reset task index for new column
+            new_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
+            current_task_idx_in_col = min(current_task_idx_in_col, max(0, len(new_col_tasks) - 1))
+        
+        elif key == curses.KEY_RIGHT:
+            current_column_idx = (current_column_idx + 1) % len(DEFAULT_COLUMNS)
+            # Reset task index for new column
+            new_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
+            current_task_idx_in_col = min(current_task_idx_in_col, max(0, len(new_col_tasks) - 1))
+        
+        elif key == curses.KEY_UP:
+            if current_col_tasks:
+                current_task_idx_in_col = (current_task_idx_in_col - 1) % len(current_col_tasks)
+        
+        elif key == curses.KEY_DOWN:
+            if current_col_tasks:
+                current_task_idx_in_col = (current_task_idx_in_col + 1) % len(current_col_tasks)
+        
+        # Handle actions
+        elif key == ord('q') or key == ord('Q'):
+            break
+        
+        elif key == ord('p') or key == ord('P'):
+            # Project management
+            new_project = manage_projects_modal(stdscr, all_projects_data, current_project_name, has_colors)
+            if new_project != current_project_name:
+                current_project_name = new_project
+                current_column_idx = 0
+                current_task_idx_in_col = 0
+                # Auto-save after project change (modal handles its own saves too)
+                auto_save()
+        
+        elif key == ord('a') or key == ord('A'):
+            # Add new task
+            title = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, "Task title: ", "", 
+                             curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 50)
+            if title:
+                # Choose priority
+                priority_options = ["Low", "Mid", "High"]
+                priority_choice = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, "Priority (L/M/H): ", "M", 
+                                          curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 5)
+                
+                priority = DEFAULT_PRIORITY
+                if priority_choice.upper().startswith('L'):
+                    priority = "Low"
+                elif priority_choice.upper().startswith('H'):
+                    priority = "High"
+                
+                new_task = {
+                    "id": generate_id(),
+                    "title": title,
+                    "priority": priority
+                }
+                
+                current_column = DEFAULT_COLUMNS[current_column_idx]
+                tasks_data[current_column].append(new_task)
+                current_task_idx_in_col = len(tasks_data[current_column]) - 1
+                
+                # Auto-save after adding task
+                auto_save(show_message=True)
+                
+                display_message(stdscr, f"Added task: {title}", 1.0, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+        
+        elif key == ord('e') or key == ord('E'):
+            # Edit task
+            if current_col_tasks:
+                task = current_col_tasks[current_task_idx_in_col]
+                new_title = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, "New title: ", task.get("title", ""), 
+                                    curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 50)
+                if new_title:
+                    task["title"] = new_title
+                    
+                    # Edit priority
+                    current_priority = task.get("priority", DEFAULT_PRIORITY)
+                    priority_choice = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, 
+                                              f"Priority (L/M/H) [{current_priority}]: ", "", 
+                                              curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 5)
+                    
+                    if priority_choice.upper().startswith('L'):
+                        task["priority"] = "Low"
+                    elif priority_choice.upper().startswith('H'):
+                        task["priority"] = "High"
+                    elif priority_choice.upper().startswith('M'):
+                        task["priority"] = "Mid"
+                    
+                    # Auto-save after editing task
+                    auto_save(show_message=True)
+                    
+                    display_message(stdscr, "Task updated", 1.0, 
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+            else:
+                display_message(stdscr, "No task to edit", 1.0, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+        
+        elif key == ord('m') or key == ord('M'):
+            # Move task between columns
+            if current_col_tasks:
+                task = current_col_tasks[current_task_idx_in_col]
+                
+                # Show column options
+                col_choice = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, "Move to column (1/2/3): ", "", 
+                                     curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 5)
+                
+                try:
+                    target_col_idx = int(col_choice) - 1
+                    if 0 <= target_col_idx < len(DEFAULT_COLUMNS) and target_col_idx != current_column_idx:
+                        # Remove from current column
+                        current_col_tasks.pop(current_task_idx_in_col)
+                        
+                        # Add to target column
+                        target_column = DEFAULT_COLUMNS[target_col_idx]
+                        tasks_data[target_column].append(task)
+                        
+                        # Update current position
+                        current_column_idx = target_col_idx
+                        current_task_idx_in_col = len(tasks_data[target_column]) - 1
+                        
+                        # Auto-save after moving task
+                        auto_save(show_message=True)
+                        
+                        display_message(stdscr, f"Moved task to {target_column}", 1.0, 
+                                      curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    else:
+                        display_message(stdscr, "Invalid column or same column", 1.0, 
+                                      curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                except ValueError:
+                    display_message(stdscr, "Invalid column number", 1.0, 
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+            else:
+                display_message(stdscr, "No task to move", 1.0, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+        
+        elif key == ord('d') or key == ord('D'):
+            # Delete task with confirmation
+            if current_col_tasks:
+                task = current_col_tasks[current_task_idx_in_col]
+                confirm = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, f"Delete '{task.get('title', 'Untitled')}'? (y/N): ", "", 
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0, 5)
+                if confirm.lower() == 'y':
+                    current_col_tasks.pop(current_task_idx_in_col)
+                    
+                    # Adjust task index if it's now out of bounds
+                    current_col_tasks_after_del = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
+                    if not current_col_tasks_after_del: 
+                        current_task_idx_in_col = 0
+                    elif current_task_idx_in_col >= len(current_col_tasks_after_del):
+                        current_task_idx_in_col = len(current_col_tasks_after_del) - 1
+                    
+                    # Auto-save after deleting task
+                    auto_save(show_message=True)
+                    
+                    display_message(stdscr, "Task deleted", 1.0, 
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                else:
+                    display_message(stdscr, "Deletion cancelled", 0.5)
+            else:
+                display_message(stdscr, "No task to delete", 0.5, 
+                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+        
+        elif key == curses.KEY_RESIZE:
+            # Handle terminal resize
+            pass
+
+    # Final save before exiting (auto_save also called throughout)
+    auto_save()
+
+def cli_main():
+    """Command line interface entry point for the package."""
+    global DATA_FILE
+    
+    parser = argparse.ArgumentParser(
+        description=__description__,
+        prog='kanby'
+    )
+    parser.add_argument(
+        '--version', 
+        action='version', 
+        version=f'%(prog)s {__version__}'
+    )
+    parser.add_argument(
+        '--data-file',
+        default=DATA_FILE,
+        help=f'Path to data file (default: {DATA_FILE})'
+    )
+    
+    args = parser.parse_args()
+    
+    # Set custom data file if provided
+    DATA_FILE = args.data_file
+    
+    try:
+        curses.wrapper(main) # Initialize curses and run main
+    except KeyboardInterrupt:
+        print("\nKanby closed. Your data has been saved.")
+        sys.exit(0)
+    except Exception as e:
+        # Ensure terminal is reset if an error occurs
+        curses.nocbreak()
+        curses.keypad(False)
+        curses.echo()
+        curses.endwin()
+        print(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        print("Terminal state should be reset. If not, try running 'reset' in your terminal.")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    cli_main()
