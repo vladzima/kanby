@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.2"
+__version__ = "1.0.5"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -153,9 +153,13 @@ def load_data():
             # Ensure data is not empty and has the new project structure
             if not data:
                  data = {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
+
+            # Extract metadata if it exists
+            meta_data = data.pop("_meta", {})
+
             # Basic check for old format (dictionary of lists) vs new (dictionary of dictionaries of lists)
             # and migrates if necessary.
-            elif not all(isinstance(val, dict) and DEFAULT_COLUMNS[0] in val for val in data.values()):
+            if not all(isinstance(val, dict) and DEFAULT_COLUMNS[0] in val for val in data.values() if val):
                 migrated_data = {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
                 # Attempt to migrate tasks from old format if it looks like column names are keys
                 for col_name_old_format, tasks_list in data.items():
@@ -170,7 +174,7 @@ def load_data():
 
             # Ensure all default columns exist for each project and tasks have IDs and priorities
             final_data = {}
-            project_keys = list(data.keys()) # Get project names
+            project_keys = list(data.keys()) # Get project names (excluding _meta)
             if not project_keys: # If there are no projects after loading (e.g. empty file or failed migration)
                 project_keys = [DEFAULT_PROJECT_NAME]
                 data[DEFAULT_PROJECT_NAME] = {} # Ensure default project key exists if data was empty
@@ -189,7 +193,11 @@ def load_data():
                                 task["priority"] = DEFAULT_PRIORITY
                             final_data[p_name][col_name].append(task)
 
-            if not final_data: # Should be caught by project_keys check, but as a fallback
+            # Add back metadata
+            if meta_data:
+                final_data["_meta"] = meta_data
+
+            if not final_data or not any(key != "_meta" for key in final_data.keys()): # Should be caught by project_keys check, but as a fallback
                 final_data = {DEFAULT_PROJECT_NAME: {col: [] for col in DEFAULT_COLUMNS}}
             return final_data
         except json.JSONDecodeError:
@@ -203,6 +211,16 @@ def save_data(all_projects_data):
     """Saves all projects and tasks to the JSON data file."""
     with open(DATA_FILE, 'w') as f:
         json.dump(all_projects_data, f, indent=4)
+
+def save_last_project_to_data(all_projects_data, project_name):
+    """Save the last opened project name in the data structure."""
+    if "_meta" not in all_projects_data:
+        all_projects_data["_meta"] = {}
+    all_projects_data["_meta"]["last_project"] = project_name
+
+def load_last_project_from_data(all_projects_data):
+    """Load the last opened project name from the data structure."""
+    return all_projects_data.get("_meta", {}).get("last_project")
 
 def get_input(stdscr, y, x, prompt, initial_value="", color_pair=0, input_width=30):
     """Gets input from the user at a specified position with a prompt."""
@@ -253,8 +271,9 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
 
     # Create modal window
     modal_win = curses.newwin(modal_height, modal_width, modal_y, modal_x)
+    modal_win.keypad(True)  # Enable keypad to capture arrow keys properly
 
-    project_names = list(all_projects_data.keys())
+    project_names = [key for key in all_projects_data.keys() if key != "_meta"]
     selected_idx = 0
     if current_project_name in project_names:
         selected_idx = project_names.index(current_project_name)
@@ -313,10 +332,12 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
 
         key = modal_win.getch()
 
-        if key == curses.KEY_UP and selected_idx > 0:
-            selected_idx -= 1
-        elif key == curses.KEY_DOWN and selected_idx < len(project_names) - 1:
-            selected_idx += 1
+        if key == curses.KEY_UP:
+            if selected_idx > 0:
+                selected_idx -= 1
+        elif key == curses.KEY_DOWN:
+            if selected_idx < len(project_names) - 1:
+                selected_idx += 1
         elif key == ord('\n') or key == curses.KEY_ENTER:
             # Select project
             if project_names:
@@ -328,7 +349,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
                                curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 30)
             if new_name and new_name not in all_projects_data:
                 all_projects_data[new_name] = {col: [] for col in DEFAULT_COLUMNS}
-                project_names = list(all_projects_data.keys())
+                project_names = [key for key in all_projects_data.keys() if key != "_meta"]
                 selected_idx = project_names.index(new_name)
                 # Save data after project creation
                 save_data(all_projects_data)
@@ -345,7 +366,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
                                   curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0, 5)
                 if confirm.lower() == 'y':
                     del all_projects_data[project_to_delete]
-                    project_names = list(all_projects_data.keys())
+                    project_names = [key for key in all_projects_data.keys() if key != "_meta"]
                     if selected_idx >= len(project_names):
                         selected_idx = len(project_names) - 1
                     # Save data after project deletion
@@ -366,7 +387,7 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
     height, width = stdscr.getmaxyx()
 
     # Display project name at the top
-    project_display = f"Project: {project_name}"
+    project_display = f"{project_name}"
     try:
         if has_colors:
             stdscr.addstr(0, 0, project_display, curses.color_pair(COLOR_PAIR_PROJECT_NAME) | curses.A_BOLD)
@@ -567,12 +588,21 @@ def main(stdscr):
             has_colors = False # Fallback if colors can't be initialized
 
     all_projects_data = load_data()
-    project_names_list = list(all_projects_data.keys())
-    current_project_name = project_names_list[0] if project_names_list else DEFAULT_PROJECT_NAME
+    project_names_list = [key for key in all_projects_data.keys() if key != "_meta"]
+
+    # Try to load the last opened project from data
+    last_project = load_last_project_from_data(all_projects_data)
+    if last_project and last_project in project_names_list:
+        current_project_name = last_project
+    else:
+        current_project_name = project_names_list[0] if project_names_list else DEFAULT_PROJECT_NAME
 
     # Ensure the current project exists in the data
     if current_project_name not in all_projects_data:
         all_projects_data[current_project_name] = {col: [] for col in DEFAULT_COLUMNS}
+
+    # Save the current project as the last opened project
+    save_last_project_to_data(all_projects_data, current_project_name)
 
     current_column_idx = 0  # Start in the first column
     current_task_idx_in_col = 0  # Start with the first task in the column
@@ -649,7 +679,8 @@ def main(stdscr):
                     current_project_name = new_project
                     current_column_idx = 0
                     current_task_idx_in_col = 0
-                    # Auto-save after project change (modal handles its own saves too)
+                    # Save the last project and auto-save data
+                    save_last_project_to_data(all_projects_data, current_project_name)
                     auto_save()
 
             elif key == ord('a') or key == ord('A'):

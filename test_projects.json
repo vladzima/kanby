@@ -1,0 +1,196 @@
+{
+    "Work Project": {
+        "To Do": [
+            {
+                "id": "work001",
+                "title": "Review quarterly reports",
+                "priority": "High"
+            },
+            {
+                "id": "work002",
+                "title": "Update team documentation",
+                "priority": "Mid"
+            },
+            {
+                "id": "work003",
+                "title": "Schedule client meeting",
+                "priority": "Low"
+            },
+            {
+                "id": "work004",
+                "title": "Prepare presentation slides",
+                "priority": "High"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "work005",
+                "title": "Implement new feature",
+                "priority": "High"
+            },
+            {
+                "id": "work006",
+                "title": "Fix bug in payment system",
+                "priority": "High"
+            }
+        ],
+        "Done": [
+            {
+                "id": "work007",
+                "title": "Deploy to staging environment",
+                "priority": "Mid"
+            }
+        ]
+    },
+    "Personal": {
+        "To Do": [
+            {
+                "id": "pers001",
+                "title": "Buy groceries",
+                "priority": "Mid"
+            },
+            {
+                "id": "pers002",
+                "title": "Call dentist for appointment",
+                "priority": "Low"
+            },
+            {
+                "id": "pers003",
+                "title": "Plan weekend trip",
+                "priority": "Low"
+            },
+            {
+                "id": "pers004",
+                "title": "Organize photo albums",
+                "priority": "Low"
+            },
+            {
+                "id": "pers005",
+                "title": "File tax documents",
+                "priority": "High"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "pers006",
+                "title": "Learn Python curses library",
+                "priority": "Mid"
+            },
+            {
+                "id": "pers007",
+                "title": "Read productivity book",
+                "priority": "Low"
+            }
+        ],
+        "Done": [
+            {
+                "id": "pers008",
+                "title": "Finish online course",
+                "priority": "Mid"
+            },
+            {
+                "id": "pers009",
+                "title": "Install Kanby",
+                "priority": "High"
+            }
+        ]
+    },
+    "Home Improvement": {
+        "To Do": [
+            {
+                "id": "home001",
+                "title": "Paint living room",
+                "priority": "Mid"
+            },
+            {
+                "id": "home002",
+                "title": "Fix leaky faucet",
+                "priority": "High"
+            },
+            {
+                "id": "home003",
+                "title": "Organize garage",
+                "priority": "Low"
+            },
+            {
+                "id": "home004",
+                "title": "Replace door handles",
+                "priority": "Low"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "home005",
+                "title": "Install new light fixtures",
+                "priority": "Mid"
+            }
+        ],
+        "Done": [
+            {
+                "id": "home006",
+                "title": "Clean gutters",
+                "priority": "Mid"
+            }
+        ]
+    },
+    "Side Project": {
+        "To Do": [
+            {
+                "id": "side001",
+                "title": "Design app mockups",
+                "priority": "High"
+            },
+            {
+                "id": "side002",
+                "title": "Research market competition",
+                "priority": "Mid"
+            },
+            {
+                "id": "side003",
+                "title": "Set up development environment",
+                "priority": "High"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "side004",
+                "title": "Build MVP prototype",
+                "priority": "High"
+            }
+        ],
+        "Done": []
+    },
+    "Learning Goals": {
+        "To Do": [
+            {
+                "id": "learn001",
+                "title": "Master terminal productivity",
+                "priority": "Mid"
+            },
+            {
+                "id": "learn002",
+                "title": "Study system design patterns",
+                "priority": "High"
+            },
+            {
+                "id": "learn003",
+                "title": "Practice algorithmic thinking",
+                "priority": "Mid"
+            }
+        ],
+        "In Progress": [
+            {
+                "id": "learn004",
+                "title": "Complete Python advanced course",
+                "priority": "High"
+            }
+        ],
+        "Done": [
+            {
+                "id": "learn005",
+                "title": "Finish Git workflow tutorial",
+                "priority": "Low"
+            }
+        ]
+    }
+}

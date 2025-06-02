@@ -130,6 +130,8 @@ rm test_kanban.json
 kanby  # Will start fresh
 ```
 
+Note: Last project preference is now stored directly in the data file under `_meta.last_project`, so removing the data file also resets the project memory.
+
 ### 📊 Expected Results
 After implementing the auto-save fix:
 - ✅ Data persists through Ctrl+C interruption
