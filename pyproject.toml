@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kanby"
-version = "1.0.0"
+version = "1.0.2"
 authors = [
-    {name = "Kanby Team", email = "team@kanby.dev"},
+    {name = "Vlad Arbatov", email = "vlad@arbatov.dev"},
 ]
 description = "A beautiful terminal-based Kanban board"
 readme = "README.md"

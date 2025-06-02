@@ -9,8 +9,8 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.0"
-__author__ = "Kanby Team"
+__version__ = "1.0.2"
+__author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
 # --- Configuration ---
@@ -341,7 +341,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
             # Delete project (with confirmation)
             if len(project_names) > 1:
                 project_to_delete = project_names[selected_idx]
-                confirm = get_input(stdscr, height - 2, 0, f"Delete '{project_to_delete}'? (y/N): ", "", 
+                confirm = get_input(stdscr, height - 2, 0, f"Delete '{project_to_delete}'? (y/N): ", "",
                                   curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0, 5)
                 if confirm.lower() == 'y':
                     del all_projects_data[project_to_delete]
@@ -350,12 +350,12 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
                         selected_idx = len(project_names) - 1
                     # Save data after project deletion
                     save_data(all_projects_data)
-                    display_message(stdscr, f"Deleted project: {project_to_delete}", 1.0, 
+                    display_message(stdscr, f"Deleted project: {project_to_delete}", 1.0,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                     if project_to_delete == current_project_name:
                         return project_names[selected_idx] if project_names else DEFAULT_PROJECT_NAME
             else:
-                display_message(stdscr, "Cannot delete the last project!", 1.5, 
+                display_message(stdscr, "Cannot delete the last project!", 1.5,
                               curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
         elif key == ord('q') or key == ord('Q') or key == 27:  # ESC
             return current_project_name
@@ -563,7 +563,7 @@ def main(stdscr):
             curses.init_pair(COLOR_PAIR_PRIO_LOW, curses.COLOR_GREEN, -1)
             curses.init_pair(COLOR_PAIR_PRIO_MID, curses.COLOR_YELLOW, -1)
             curses.init_pair(COLOR_PAIR_PRIO_HIGH, curses.COLOR_RED, -1)
-        except curses.error: 
+        except curses.error:
             has_colors = False # Fallback if colors can't be initialized
 
     all_projects_data = load_data()
@@ -598,18 +598,18 @@ def main(stdscr):
         while True:
             # Get current project's tasks
             tasks_data = all_projects_data[current_project_name]
-            
+
             # Ensure current indices are valid
             if current_column_idx >= len(DEFAULT_COLUMNS):
                 current_column_idx = 0
-            
+
             current_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
             if current_task_idx_in_col >= len(current_col_tasks):
                 current_task_idx_in_col = max(0, len(current_col_tasks) - 1)
-            
+
             # Draw the board
             draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
-            
+
             # Get user input
             try:
                 key = stdscr.getch()
@@ -623,21 +623,21 @@ def main(stdscr):
                 # Reset task index for new column
                 new_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
                 current_task_idx_in_col = min(current_task_idx_in_col, max(0, len(new_col_tasks) - 1))
-            
+
             elif key == curses.KEY_RIGHT:
                 current_column_idx = (current_column_idx + 1) % len(DEFAULT_COLUMNS)
                 # Reset task index for new column
                 new_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
                 current_task_idx_in_col = min(current_task_idx_in_col, max(0, len(new_col_tasks) - 1))
-            
+
             elif key == curses.KEY_UP:
                 if current_col_tasks:
                     current_task_idx_in_col = (current_task_idx_in_col - 1) % len(current_col_tasks)
-            
+
             elif key == curses.KEY_DOWN:
                 if current_col_tasks:
                     current_task_idx_in_col = (current_task_idx_in_col + 1) % len(current_col_tasks)
-            
+
             # Handle actions
             elif key == ord('q') or key == ord('Q'):
                 break
@@ -719,63 +719,63 @@ def main(stdscr):
                 # Enter move mode - use arrow keys to move tasks
                 if current_col_tasks:
                     task = current_col_tasks[current_task_idx_in_col]
-                    
+
                     # Display move mode instructions
                     display_message(stdscr, "Move mode: ← → (columns) ↑ ↓ (reorder) | Enter: confirm | Esc: cancel", 0.1,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
-                    
+
                     move_mode = True
                     original_col_idx = current_column_idx
                     original_task_idx = current_task_idx_in_col
-                    
+
                     while move_mode:
                         # Redraw board to show current position
                         draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
-                        
+
                         # Show move mode status
                         height, width = stdscr.getmaxyx()
                         move_msg = "MOVE MODE: ← → (columns) ↑ ↓ (reorder) | Enter: confirm | Esc: cancel"
                         try:
-                            stdscr.addstr(height - 1, 0, move_msg[:width-1], 
+                            stdscr.addstr(height - 1, 0, move_msg[:width-1],
                                         curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                             stdscr.refresh()
                         except curses.error:
                             pass
-                        
+
                         move_key = stdscr.getch()
-                        
+
                         if move_key == curses.KEY_LEFT:
                             # Move to previous column
                             new_col_idx = (current_column_idx - 1) % len(DEFAULT_COLUMNS)
                             if new_col_idx != current_column_idx:
                                 # Remove from current column
                                 current_col_tasks.pop(current_task_idx_in_col)
-                                
+
                                 # Add to new column at the end
                                 new_column = DEFAULT_COLUMNS[new_col_idx]
                                 tasks_data[new_column].append(task)
-                                
+
                                 # Update position
                                 current_column_idx = new_col_idx
                                 current_task_idx_in_col = len(tasks_data[new_column]) - 1
                                 current_col_tasks = tasks_data[DEFAULT_COLUMNS[current_column_idx]]
-                        
+
                         elif move_key == curses.KEY_RIGHT:
                             # Move to next column
                             new_col_idx = (current_column_idx + 1) % len(DEFAULT_COLUMNS)
                             if new_col_idx != current_column_idx:
                                 # Remove from current column
                                 current_col_tasks.pop(current_task_idx_in_col)
-                                
+
                                 # Add to new column at the end
                                 new_column = DEFAULT_COLUMNS[new_col_idx]
                                 tasks_data[new_column].append(task)
-                                
+
                                 # Update position
                                 current_column_idx = new_col_idx
                                 current_task_idx_in_col = len(tasks_data[new_column]) - 1
                                 current_col_tasks = tasks_data[DEFAULT_COLUMNS[current_column_idx]]
-                        
+
                         elif move_key == curses.KEY_UP:
                             # Move task up in current column
                             if current_task_idx_in_col > 0:
@@ -783,7 +783,7 @@ def main(stdscr):
                                 current_col_tasks[current_task_idx_in_col], current_col_tasks[current_task_idx_in_col - 1] = \
                                     current_col_tasks[current_task_idx_in_col - 1], current_col_tasks[current_task_idx_in_col]
                                 current_task_idx_in_col -= 1
-                        
+
                         elif move_key == curses.KEY_DOWN:
                             # Move task down in current column
                             if current_task_idx_in_col < len(current_col_tasks) - 1:
@@ -791,33 +791,33 @@ def main(stdscr):
                                 current_col_tasks[current_task_idx_in_col], current_col_tasks[current_task_idx_in_col + 1] = \
                                     current_col_tasks[current_task_idx_in_col + 1], current_col_tasks[current_task_idx_in_col]
                                 current_task_idx_in_col += 1
-                        
+
                         elif move_key == ord('\n') or move_key == curses.KEY_ENTER or move_key == 10:
                             # Confirm move
                             move_mode = False
                             auto_save(show_message=True)
-                            
-                            if (current_column_idx != original_col_idx or 
+
+                            if (current_column_idx != original_col_idx or
                                 current_task_idx_in_col != original_task_idx):
                                 display_message(stdscr, "Task moved successfully!", 1.0,
                                               curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                             else:
                                 display_message(stdscr, "Task position unchanged", 0.5,
                                               curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
-                        
+
                         elif move_key == 27:  # ESC key
                             # Cancel move - restore original position
                             move_mode = False
-                            
+
                             # If we moved columns, need to restore
                             if current_column_idx != original_col_idx:
                                 # Remove from current position
                                 current_col_tasks.pop(current_task_idx_in_col)
-                                
+
                                 # Restore to original position
                                 original_column_tasks = tasks_data[DEFAULT_COLUMNS[original_col_idx]]
                                 original_column_tasks.insert(original_task_idx, task)
-                                
+
                                 current_column_idx = original_col_idx
                                 current_task_idx_in_col = original_task_idx
                             elif current_task_idx_in_col != original_task_idx:
@@ -825,14 +825,14 @@ def main(stdscr):
                                 current_col_tasks.pop(current_task_idx_in_col)
                                 current_col_tasks.insert(original_task_idx, task)
                                 current_task_idx_in_col = original_task_idx
-                            
+
                             display_message(stdscr, "Move cancelled", 0.5,
                                           curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
-                        
+
                         # Update current_col_tasks reference
                         current_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
                 else:
-                    display_message(stdscr, "No task to move", 1.0, 
+                    display_message(stdscr, "No task to move", 1.0,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
             elif key == ord('d') or key == ord('D'):
@@ -865,7 +865,7 @@ def main(stdscr):
             elif key == curses.KEY_RESIZE:
                 # Handle terminal resize
                 pass
-    
+
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully
         try:
@@ -881,7 +881,7 @@ def main(stdscr):
         except:
             pass
         return
-    
+
     # Final save before exiting (auto_save also called throughout)
     try:
         auto_save()
