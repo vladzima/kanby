@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.13"
+__version__ = "1.0.14"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
