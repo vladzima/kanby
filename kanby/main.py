@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.11"
+__version__ = "1.0.13"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -423,21 +423,13 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
     stdscr.clear()
     height, width = stdscr.getmaxyx()
 
-    # Display project name at the top
-    project_display = f"{project_name}"
-    try:
-        if has_colors:
-            stdscr.addstr(0, 0, project_display, curses.color_pair(COLOR_PAIR_PROJECT_NAME) | curses.A_BOLD)
-        else:
-            stdscr.addstr(0, 0, project_display, curses.A_BOLD)
-    except curses.error:
-        pass
+
 
     # Calculate column width
     col_width = max(DEFAULT_COLUMN_WIDTH, (width - len(DEFAULT_COLUMNS) - 1) // len(DEFAULT_COLUMNS))
 
     # Draw column headers
-    header_y = 2
+    header_y = 1
     for i, col_name in enumerate(DEFAULT_COLUMNS):
         x_pos = i * (col_width + 1)
         try:
@@ -586,13 +578,24 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
 
                 current_y += MIN_TASK_DISPLAY_HEIGHT
 
-    # Draw instructions at the bottom
+    # Draw project name and instructions at the bottom
     instructions = "←→: Columns | ↑↓: Tasks | a: Add | e: Edit | d: Delete | m: Move (+ arrows) | p: Projects | q: Quit"
+    status_line = f"{project_name} | {instructions}"
     try:
+        # First draw the project name in bold
         if has_colors:
-            stdscr.addstr(height - 1, 0, instructions[:width-1], curses.color_pair(COLOR_PAIR_MESSAGE_INFO))
+            stdscr.addstr(height - 1, 1, project_name, curses.color_pair(COLOR_PAIR_PROJECT_NAME) | curses.A_BOLD)
         else:
-            stdscr.addstr(height - 1, 0, instructions[:width-1])
+            stdscr.addstr(height - 1, 1, project_name, curses.A_BOLD)
+
+        # Then draw the separator and instructions
+        separator_and_instructions = f" | {instructions}"
+        remaining_width = width - len(project_name) - 2
+        if remaining_width > 0:
+            if has_colors:
+                stdscr.addstr(height - 1, len(project_name) + 1, separator_and_instructions[:remaining_width], curses.color_pair(COLOR_PAIR_MESSAGE_INFO))
+            else:
+                stdscr.addstr(height - 1, len(project_name) + 1, separator_and_instructions[:remaining_width])
     except curses.error:
         pass
 
