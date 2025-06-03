@@ -2,6 +2,8 @@
 
 **A Beautiful Terminal-Based Kanban Board**
 
+![Screenshot](https://cdn.arbatov.dev/FUb3NPhuYzVMEY5uSQJ0TS6TY.jpg)
+
 Kanby brings the power of Kanban boards directly to your terminal with a clean, intuitive interface built using Python's curses library.
 
 ## ✨ Features
@@ -120,7 +122,7 @@ Navigate through long task lists with `↑` `↓` arrows. Headers automatically 
 ### Priority Levels
 Tasks display with compact priority indicators on the same line:
 - **[H] Task title**: High priority (red color coding)
-- **[M] Task title**: Mid priority (yellow color coding)  
+- **[M] Task title**: Mid priority (yellow color coding)
 - **[L] Task title**: Low priority (green color coding)
 
 This space-efficient format allows 3x more tasks to be visible on screen compared to the previous multi-line format.
