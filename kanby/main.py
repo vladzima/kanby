@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.9"
+__version__ = "1.0.11"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -523,9 +523,9 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
             # Show empty column message
             try:
                 if has_colors:
-                    stdscr.addstr(task_start_y, x_pos, EMPTY_COLUMN_TEXT, curses.color_pair(COLOR_PAIR_BORDER))
+                    stdscr.addstr(task_start_y, x_pos + 1, EMPTY_COLUMN_TEXT, curses.color_pair(COLOR_PAIR_BORDER))
                 else:
-                    stdscr.addstr(task_start_y, x_pos, EMPTY_COLUMN_TEXT)
+                    stdscr.addstr(task_start_y, x_pos + 1, EMPTY_COLUMN_TEXT)
             except curses.error:
                 pass
         else:
@@ -572,14 +572,14 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
 
                     if is_selected:
                         if has_colors:
-                            stdscr.addstr(current_y, x_pos, display_text.ljust(col_width), curses.color_pair(COLOR_PAIR_SELECTED_TASK))
+                            stdscr.addstr(current_y, x_pos + 1, display_text.ljust(col_width - 1), curses.color_pair(COLOR_PAIR_SELECTED_TASK))
                         else:
-                            stdscr.addstr(current_y, x_pos, display_text.ljust(col_width), curses.A_REVERSE)
+                            stdscr.addstr(current_y, x_pos + 1, display_text.ljust(col_width - 1), curses.A_REVERSE)
                     else:
                         if has_colors:
-                            stdscr.addstr(current_y, x_pos, display_text, curses.color_pair(priority_color))
+                            stdscr.addstr(current_y, x_pos + 1, display_text, curses.color_pair(priority_color))
                         else:
-                            stdscr.addstr(current_y, x_pos, display_text)
+                            stdscr.addstr(current_y, x_pos + 1, display_text)
 
                 except curses.error:
                     pass
