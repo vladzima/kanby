@@ -11,7 +11,7 @@ import json
 from unittest.mock import MagicMock, patch, call
 
 # Add the package to path for testing
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from kanby.main import manage_projects_modal, DEFAULT_COLUMNS
 import curses

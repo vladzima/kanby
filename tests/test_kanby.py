@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 # Add the package to path for testing
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from kanby.main import generate_id, load_data, save_data, DEFAULT_COLUMNS, DEFAULT_PROJECT_NAME
 

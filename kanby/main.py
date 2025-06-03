@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -294,6 +294,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
             "↑/↓: Navigate",
             "Enter: Select project",
             "n: New project",
+            "r: Rename project",
             "d: Delete project",
             "q: Cancel"
         ]
@@ -358,6 +359,42 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
             elif new_name in all_projects_data:
                 display_message(stdscr, "Project already exists!", 1.5,
                               curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+        elif key == ord('r') or key == ord('R'):
+            # Rename project
+            if project_names:
+                old_name = project_names[selected_idx]
+                new_name = get_input(stdscr, height - 2, 0, f"Rename '{old_name}' to: ", old_name,
+                                   curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 30)
+                if new_name and new_name != old_name:
+                    if new_name not in all_projects_data:
+                        # Rename the project by copying data and deleting old key
+                        all_projects_data[new_name] = all_projects_data[old_name]
+                        del all_projects_data[old_name]
+
+                        # Update meta data if it referenced the old project
+                        if all_projects_data.get("_meta", {}).get("last_project") == old_name:
+                            if "_meta" not in all_projects_data:
+                                all_projects_data["_meta"] = {}
+                            all_projects_data["_meta"]["last_project"] = new_name
+
+                        # Update project names list and selected index
+                        project_names = [key for key in all_projects_data.keys() if key != "_meta"]
+                        selected_idx = project_names.index(new_name)
+
+                        # Save data after project rename
+                        save_data(all_projects_data)
+                        display_message(stdscr, f"Renamed project: {old_name} → {new_name}", 1.5,
+                                      curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+
+                        # If we renamed the current project, return the new name
+                        if old_name == current_project_name:
+                            current_project_name = new_name
+                    else:
+                        display_message(stdscr, "Project name already exists!", 1.5,
+                                      curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                elif new_name == old_name:
+                    display_message(stdscr, "Project name unchanged.", 1.0,
+                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
         elif key == ord('d') or key == ord('D'):
             # Delete project (with confirmation)
             if len(project_names) > 1:

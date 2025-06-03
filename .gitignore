@@ -174,3 +174,4 @@ Desktop.ini
 # Application specific
 kanby_data.json
 *.kanban
+.ai/*

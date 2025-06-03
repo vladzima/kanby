@@ -72,6 +72,16 @@ kanby --help
 |-----|--------|
 | `p` | Open project manager |
 
+#### In Project Manager
+| Key | Action |
+|-----|--------|
+| `↑` `↓` | Navigate projects |
+| `Enter` | Select project |
+| `n` | New project |
+| `r` | Rename project |
+| `d` | Delete project |
+| `q` | Cancel/Exit |
+
 ### Application
 | Key | Action |
 |-----|--------|
@@ -115,6 +125,13 @@ kanby --help
 1. In project manager, press `n`
 2. Enter new project name
 3. Project is created with default columns
+
+### Renaming Projects
+1. In project manager, select project to rename
+2. Press `r` to rename
+3. Enter new project name
+4. All tasks and data are preserved
+5. Cannot rename to an existing project name
 
 ### Deleting Projects
 1. In project manager, select project
@@ -223,16 +240,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Reporting Issues
 Please use the GitHub issue tracker to report bugs or request features.
-
-## 🚀 Roadmap
-
-- [ ] Custom column names
-- [ ] Task due dates
-- [ ] Task descriptions
-- [ ] Import/export functionality
-- [ ] Themes and customization
-- [ ] Search functionality
-- [ ] Task filtering
 
 
 **Made with ❤️ for terminal enthusiasts and productivity lovers**

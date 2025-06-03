@@ -12,7 +12,7 @@ import time
 from unittest.mock import patch, MagicMock
 
 # Add the package to path for testing
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from kanby.main import (
     save_last_project_to_data, load_last_project_from_data, manage_projects_modal,
