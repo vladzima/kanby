@@ -14,7 +14,7 @@ from unittest.mock import patch
 # Add the package to path for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from kanby.main import generate_id, load_data, save_data, DEFAULT_COLUMNS, DEFAULT_PROJECT_NAME
+from kanby.main import generate_id, load_data, save_data, DEFAULT_COLUMNS, DEFAULT_PROJECT_NAME, is_key_pressed
 
 
 class TestKanby(unittest.TestCase):
@@ -128,6 +128,37 @@ class TestKanby(unittest.TestCase):
         from kanby.main import cli_main
         
         self.assertTrue(callable(cli_main))
+    
+    def test_keyboard_input_detection(self):
+        """Test that keyboard input detection works with different layouts."""
+        # Test basic ASCII character detection
+        self.assertTrue(is_key_pressed(ord('q'), 'q'))
+        self.assertTrue(is_key_pressed(ord('Q'), 'q'))
+        self.assertTrue(is_key_pressed(ord('a'), 'a'))
+        self.assertTrue(is_key_pressed(ord('A'), 'a'))
+        
+        # Test case insensitivity
+        self.assertTrue(is_key_pressed(ord('p'), 'P'))
+        self.assertTrue(is_key_pressed(ord('P'), 'p'))
+        
+        # Test non-matching keys
+        self.assertFalse(is_key_pressed(ord('x'), 'q'))
+        self.assertFalse(is_key_pressed(ord('1'), 'a'))
+        
+        # Test that non-ASCII characters don't match
+        self.assertFalse(is_key_pressed(200, 'a'))  # High-bit char should not match A
+        self.assertFalse(is_key_pressed(250, 'm'))  # High-bit char should not match M
+        self.assertFalse(is_key_pressed(180, 'p'))  # High-bit char should not match P
+        self.assertFalse(is_key_pressed(160, 'q'))  # High-bit char should not match Q
+        self.assertFalse(is_key_pressed(220, 'd'))  # High-bit char should not match D
+        self.assertFalse(is_key_pressed(240, 'e'))  # High-bit char should not match E
+        self.assertFalse(is_key_pressed(200, 'x'))  # High-bit char should not match X
+        self.assertFalse(is_key_pressed(200, 'z'))  # High-bit char should not match Z
+        
+        # Test invalid inputs
+        self.assertFalse(is_key_pressed(ord('q'), ''))
+        self.assertFalse(is_key_pressed(ord('q'), 'qq'))
+        self.assertFalse(is_key_pressed(ord('q'), None))
 
 
 def run_tests():

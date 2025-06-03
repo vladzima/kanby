@@ -14,7 +14,8 @@ Kanby brings the power of Kanban boards directly to your terminal with a clean, 
 - 💾 **Persistent Storage**: All data saved locally in JSON format
 - ⌨️ **Keyboard Navigation**: Full keyboard control for efficiency
 - 🎭 **Beautiful UI**: Clean, colorful terminal interface with splash screen
-- 🚀 **Fast & Lightweight**: No external dependencies required
+- 🚀 **Fast & Lightweight**: Minimal dependencies (Windows curses auto-installed on Windows)
+- 🌍 **Cross-Platform**: Works on Linux, macOS, and Windows with proper curses support
 - 🔧 **CLI Options**: Custom data file locations and more
 
 ## 📦 Installation
@@ -23,6 +24,8 @@ Kanby brings the power of Kanban boards directly to your terminal with a clean, 
 ```bash
 pip install kanby
 ```
+
+**Windows Users**: The `windows-curses` dependency will be automatically installed on Windows systems.
 
 ### Using uv
 ```bash
@@ -35,6 +38,12 @@ git clone https://github.com/vladzima/kanby
 cd kanby
 pip install -e .
 ```
+
+### Windows Compatibility
+Kanby automatically handles Windows curses compatibility. If you encounter issues on Windows, ensure you have:
+- Python 3.7 or later
+- The `windows-curses` package (installed automatically)
+
 
 ## 🚀 Usage
 

@@ -1,5 +1,3 @@
-import curses
-import curses.textpad
 import json
 import os
 import time
@@ -8,8 +6,22 @@ import argparse
 import sys
 import signal
 
+# Windows curses compatibility
+try:
+    import curses
+    import curses.textpad
+except ImportError:
+    try:
+        import windows_curses as curses
+        import curses.textpad
+    except ImportError:
+        print("Error: curses library not available.")
+        print("For Windows users, please install: pip install windows-curses")
+        print("For other systems, curses should be available by default.")
+        sys.exit(1)
+
 # --- Package Info ---
-__version__ = "1.0.16"
+__version__ = "1.0.21"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -46,6 +58,26 @@ COLOR_PAIR_SPLASH_VERSION = 22
 COLOR_PAIR_SPLASH_LOADING = 23
 
 # --- Helper Functions ---
+def is_key_pressed(key, target_char):
+    """
+    Simple keyboard detection for ASCII characters only.
+
+    Args:
+        key: The key code returned by curses getch()
+        target_char: The target character (e.g., 'q', 'p', 'a')
+
+    Returns:
+        bool: True if the key matches the target character
+    """
+    if not isinstance(target_char, str) or len(target_char) != 1:
+        return False
+
+    target_lower = target_char.lower()
+    target_upper = target_char.upper()
+
+    # Check ASCII characters only
+    return key == ord(target_lower) or key == ord(target_upper)
+
 def show_splash_screen(stdscr):
     """Display a cool splash screen on startup."""
     # Get terminal dimensions
@@ -344,7 +376,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
             if project_names:
                 return project_names[selected_idx]
             return current_project_name
-        elif key == ord('n') or key == ord('N'):
+        elif is_key_pressed(key, 'n'):
             # Create new project
             new_name = get_input(stdscr, height - 2, 0, "New project name: ", "",
                                curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 30)
@@ -359,7 +391,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
             elif new_name in all_projects_data:
                 display_message(stdscr, "Project already exists!", 1.5,
                               curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
-        elif key == ord('r') or key == ord('R'):
+        elif is_key_pressed(key, 'r'):
             # Rename project
             if project_names:
                 old_name = project_names[selected_idx]
@@ -395,7 +427,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
                 elif new_name == old_name:
                     display_message(stdscr, "Project name unchanged.", 1.0,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
-        elif key == ord('d') or key == ord('D'):
+        elif is_key_pressed(key, 'd'):
             # Delete project (with confirmation)
             if len(project_names) > 1:
                 project_to_delete = project_names[selected_idx]
@@ -415,7 +447,7 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
             else:
                 display_message(stdscr, "Cannot delete the last project!", 1.5,
                               curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
-        elif key == ord('q') or key == ord('Q') or key == 27:  # ESC
+        elif is_key_pressed(key, 'q') or key == 27:  # 'q' or ESC
             return current_project_name
 
 def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, project_name, has_colors):
@@ -737,10 +769,10 @@ def main(stdscr):
                     current_task_idx_in_col = (current_task_idx_in_col + 1) % len(current_col_tasks)
 
             # Handle actions
-            elif key == ord('q') or key == ord('Q'):
+            elif is_key_pressed(key, 'q'):
                 break
 
-            elif key == ord('p') or key == ord('P'):
+            elif is_key_pressed(key, 'p'):
                 # Project management
                 new_project = manage_projects_modal(stdscr, all_projects_data, current_project_name, has_colors)
                 if new_project != current_project_name:
@@ -751,7 +783,7 @@ def main(stdscr):
                     save_last_project_to_data(all_projects_data, current_project_name)
                     auto_save()
 
-            elif key == ord('a') or key == ord('A'):
+            elif is_key_pressed(key, 'a'):
                 # Add new task
                 title = get_input(stdscr, stdscr.getmaxyx()[0] - 2, 0, "Task title: ", "",
                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0, 50)
@@ -783,7 +815,7 @@ def main(stdscr):
                     display_message(stdscr, f"Added task: {title}", 1.0,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
 
-            elif key == ord('e') or key == ord('E'):
+            elif is_key_pressed(key, 'e'):
                 # Edit task
                 if current_col_tasks:
                     task = current_col_tasks[current_task_idx_in_col]
@@ -814,7 +846,7 @@ def main(stdscr):
                     display_message(stdscr, "No task to edit", 1.0,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
-            elif key == ord('m') or key == ord('M'):
+            elif is_key_pressed(key, 'm'):
                 # Enter move mode - use arrow keys to move tasks
                 if current_col_tasks:
                     task = current_col_tasks[current_task_idx_in_col]
@@ -934,7 +966,7 @@ def main(stdscr):
                     display_message(stdscr, "No task to move", 1.0,
                                   curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
-            elif key == ord('d') or key == ord('D'):
+            elif is_key_pressed(key, 'd'):
                 # Delete task with confirmation
                 if current_col_tasks:
                     task = current_col_tasks[current_task_idx_in_col]
