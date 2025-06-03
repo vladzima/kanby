@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.14"
+__version__ = "1.0.15"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -580,22 +580,35 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
 
     # Draw project name and instructions at the bottom
     instructions = "←→: Columns | ↑↓: Tasks | a: Add | e: Edit | d: Delete | m: Move (+ arrows) | p: Projects | q: Quit"
-    status_line = f"{project_name} | {instructions}"
+    version_text = __version__
     try:
+        # Calculate available space for instructions (reserve space for version)
+        project_start = 1
+        version_space = len(version_text) + 1  # +1 for space before version
+        available_width = width - len(project_name) - project_start - version_space - 1
+
         # First draw the project name in bold
         if has_colors:
-            stdscr.addstr(height - 1, 1, project_name, curses.color_pair(COLOR_PAIR_PROJECT_NAME) | curses.A_BOLD)
+            stdscr.addstr(height - 1, project_start, project_name, curses.color_pair(COLOR_PAIR_PROJECT_NAME) | curses.A_BOLD)
         else:
-            stdscr.addstr(height - 1, 1, project_name, curses.A_BOLD)
+            stdscr.addstr(height - 1, project_start, project_name, curses.A_BOLD)
 
-        # Then draw the separator and instructions
+        # Then draw the separator and instructions (truncated if needed)
         separator_and_instructions = f" | {instructions}"
-        remaining_width = width - len(project_name) - 2
-        if remaining_width > 0:
+        if available_width > 0:
+            truncated_instructions = separator_and_instructions[:available_width]
             if has_colors:
-                stdscr.addstr(height - 1, len(project_name) + 1, separator_and_instructions[:remaining_width], curses.color_pair(COLOR_PAIR_MESSAGE_INFO))
+                stdscr.addstr(height - 1, len(project_name) + project_start, truncated_instructions, curses.color_pair(COLOR_PAIR_MESSAGE_INFO))
             else:
-                stdscr.addstr(height - 1, len(project_name) + 1, separator_and_instructions[:remaining_width])
+                stdscr.addstr(height - 1, len(project_name) + project_start, truncated_instructions)
+
+        # Draw version at the end
+        version_x = width - len(version_text) - 1
+        if version_x > len(project_name) + project_start:  # Make sure version doesn't overlap
+            if has_colors:
+                stdscr.addstr(height - 1, version_x, version_text, curses.color_pair(COLOR_PAIR_MESSAGE_INFO))
+            else:
+                stdscr.addstr(height - 1, version_x, version_text)
     except curses.error:
         pass
 
