@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.7"
+__version__ = "1.0.9"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -18,7 +18,7 @@ DATA_FILE = "kanby_data.json"
 DEFAULT_COLUMNS = ["To Do", "In Progress", "Done"]
 DEFAULT_PROJECT_NAME = "Default Project"
 DEFAULT_COLUMN_WIDTH = 30
-MIN_TASK_DISPLAY_HEIGHT = 3 # For Priority, Title, Separator
+MIN_TASK_DISPLAY_HEIGHT = 1 # For single-line Priority + Title format
 EMPTY_COLUMN_TEXT = "[No tasks]"
 PRIORITIES = ["Low", "Mid", "High"]
 DEFAULT_PRIORITY = "Mid"
@@ -523,9 +523,9 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
             # Show empty column message
             try:
                 if has_colors:
-                    stdscr.addstr(task_start_y + 1, x_pos + 2, EMPTY_COLUMN_TEXT, curses.color_pair(COLOR_PAIR_BORDER))
+                    stdscr.addstr(task_start_y, x_pos, EMPTY_COLUMN_TEXT, curses.color_pair(COLOR_PAIR_BORDER))
                 else:
-                    stdscr.addstr(task_start_y + 1, x_pos + 2, EMPTY_COLUMN_TEXT)
+                    stdscr.addstr(task_start_y, x_pos, EMPTY_COLUMN_TEXT)
             except curses.error:
                 pass
         else:
@@ -560,42 +560,26 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
                     priority_color = COLOR_PAIR_PRIO_HIGH
 
                 try:
-                    # Draw task priority
-                    priority_text = f"[{priority}]"
-                    if is_selected:
-                        if has_colors:
-                            stdscr.addstr(current_y, x_pos, priority_text[:col_width], curses.color_pair(COLOR_PAIR_SELECTED_TASK))
-                        else:
-                            stdscr.addstr(current_y, x_pos, priority_text[:col_width], curses.A_REVERSE)
-                    else:
-                        if has_colors:
-                            stdscr.addstr(current_y, x_pos, priority_text[:col_width], curses.color_pair(priority_color))
-                        else:
-                            stdscr.addstr(current_y, x_pos, priority_text[:col_width])
+                    # Get priority abbreviation
+                    priority_abbrev = priority[0].upper()  # H, M, L
 
-                    # Draw task title
+                    # Combine priority and title on one line
                     title = task.get("title", "Untitled")
-                    title_text = title[:col_width]  # Truncate if too long
-                    if is_selected:
-                        if has_colors:
-                            stdscr.addstr(current_y + 1, x_pos, title_text.ljust(col_width), curses.color_pair(COLOR_PAIR_SELECTED_TASK))
-                        else:
-                            stdscr.addstr(current_y + 1, x_pos, title_text.ljust(col_width), curses.A_REVERSE)
-                    else:
-                        stdscr.addstr(current_y + 1, x_pos, title_text[:col_width])
+                    combined_text = f"[{priority_abbrev}] {title}"
 
-                    # Draw separator line
-                    separator = "-" * min(col_width, len(title_text))
+                    # Truncate if too long
+                    display_text = combined_text[:col_width]
+
                     if is_selected:
                         if has_colors:
-                            stdscr.addstr(current_y + 2, x_pos, separator, curses.color_pair(COLOR_PAIR_SELECTED_TASK))
+                            stdscr.addstr(current_y, x_pos, display_text.ljust(col_width), curses.color_pair(COLOR_PAIR_SELECTED_TASK))
                         else:
-                            stdscr.addstr(current_y + 2, x_pos, separator, curses.A_REVERSE)
+                            stdscr.addstr(current_y, x_pos, display_text.ljust(col_width), curses.A_REVERSE)
                     else:
                         if has_colors:
-                            stdscr.addstr(current_y + 2, x_pos, separator, curses.color_pair(COLOR_PAIR_BORDER))
+                            stdscr.addstr(current_y, x_pos, display_text, curses.color_pair(priority_color))
                         else:
-                            stdscr.addstr(current_y + 2, x_pos, separator)
+                            stdscr.addstr(current_y, x_pos, display_text)
 
                 except curses.error:
                     pass

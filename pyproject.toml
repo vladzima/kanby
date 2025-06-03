@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kanby"
-version = "1.0.7"
+version = "1.0.9"
 authors = [
     {name = "Vlad Arbatov", email = "vlad@arbatov.dev"},
 ]
@@ -34,9 +34,9 @@ classifiers = [
 keywords = ["kanban", "terminal", "productivity", "todo", "curses", "cli"]
 
 [project.urls]
-Homepage = "https://github.com/kanby-team/kanby"
-Repository = "https://github.com/kanby-team/kanby"
-Issues = "https://github.com/kanby-team/kanby/issues"
+Homepage = "https://github.com/vladzima/kanby"
+Repository = "https://github.com/vladzima/kanby"
+Issues = "https://github.com/vladzima/kanby/issues"
 
 [project.scripts]
 kanby = "kanby.main:cli_main"

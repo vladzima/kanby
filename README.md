@@ -118,9 +118,12 @@ Column headers show task counts and visibility information:
 Navigate through long task lists with `↑` `↓` arrows. Headers automatically update to show which tasks are currently visible on screen.
 
 ### Priority Levels
-- **Low**: Green color coding
-- **Mid**: Yellow color coding
-- **High**: Red color coding
+Tasks display with compact priority indicators on the same line:
+- **[H] Task title**: High priority (red color coding)
+- **[M] Task title**: Mid priority (yellow color coding)  
+- **[L] Task title**: Low priority (green color coding)
+
+This space-efficient format allows 3x more tasks to be visible on screen compared to the previous multi-line format.
 
 ## 📁 Project Management
 
