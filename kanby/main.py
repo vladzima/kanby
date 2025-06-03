@@ -9,7 +9,7 @@ import sys
 import signal
 
 # --- Package Info ---
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -441,17 +441,48 @@ def draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, 
     for i, col_name in enumerate(DEFAULT_COLUMNS):
         x_pos = i * (col_width + 1)
         try:
+            # Get task count info for this column
+            tasks = tasks_data.get(col_name, [])
+            total_tasks = len(tasks)
+
+            # Calculate visible range if there are tasks
+            if total_tasks > 0:
+                max_tasks_to_show = (height - 7) // MIN_TASK_DISPLAY_HEIGHT  # Rough calculation
+                if i == current_column_idx and current_task_idx_in_col < total_tasks:
+                    start_task_idx = max(0, current_task_idx_in_col - max_tasks_to_show + 1)
+                    if start_task_idx + max_tasks_to_show > total_tasks:
+                        start_task_idx = max(0, total_tasks - max_tasks_to_show)
+                else:
+                    start_task_idx = 0
+                end_task_idx = min(total_tasks, start_task_idx + max_tasks_to_show)
+
+                # Create header with task count info
+                if max_tasks_to_show >= total_tasks:
+                    # All tasks visible
+                    header_text = f"{col_name} ({total_tasks})"
+                else:
+                    # Show visible range
+                    visible_start = start_task_idx + 1
+                    visible_end = end_task_idx
+                    header_text = f"{col_name} ({visible_start}-{visible_end}/{total_tasks})"
+            else:
+                header_text = f"{col_name} (0)"
+
+            # Truncate header if too long
+            if len(header_text) > col_width:
+                header_text = header_text[:col_width-3] + "..."
+
             # Draw column header
             if i == current_column_idx:
                 if has_colors:
-                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.color_pair(COLOR_PAIR_ACTIVE_HEADER) | curses.A_BOLD)
+                    stdscr.addstr(header_y, x_pos, header_text.center(col_width), curses.color_pair(COLOR_PAIR_ACTIVE_HEADER) | curses.A_BOLD)
                 else:
-                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.A_REVERSE | curses.A_BOLD)
+                    stdscr.addstr(header_y, x_pos, header_text.center(col_width), curses.A_REVERSE | curses.A_BOLD)
             else:
                 if has_colors:
-                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.color_pair(COLOR_PAIR_HEADER))
+                    stdscr.addstr(header_y, x_pos, header_text.center(col_width), curses.color_pair(COLOR_PAIR_HEADER))
                 else:
-                    stdscr.addstr(header_y, x_pos, col_name.center(col_width), curses.A_BOLD)
+                    stdscr.addstr(header_y, x_pos, header_text.center(col_width), curses.A_BOLD)
 
             # Draw vertical separator
             if i < len(DEFAULT_COLUMNS) - 1:

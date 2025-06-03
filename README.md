@@ -109,6 +109,14 @@ kanby --help
    - `↑` `↓` : Reorder within current column
 4. Press `Enter` to confirm or `Esc` to cancel
 
+### Task Visibility & Scrolling
+Column headers show task counts and visibility information:
+- **All visible**: `To Do (5)` - shows total count when all tasks fit
+- **Scrolling needed**: `To Do (3-7/15)` - shows visible range when scrolling
+- **Empty column**: `To Do (0)` - indicates no tasks in column
+
+Navigate through long task lists with `↑` `↓` arrows. Headers automatically update to show which tasks are currently visible on screen.
+
 ### Priority Levels
 - **Low**: Green color coding
 - **Mid**: Yellow color coding
