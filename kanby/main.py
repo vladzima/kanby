@@ -5,6 +5,8 @@ import uuid
 import argparse
 import sys
 import signal
+import threading
+from queue import Queue, Empty
 
 # Windows curses compatibility
 try:
@@ -21,7 +23,7 @@ except ImportError:
         sys.exit(1)
 
 # --- Package Info ---
-__version__ = "1.0.21"
+__version__ = "1.0.23"
 __author__ = "Vlad Arbatov"
 __description__ = "A beautiful terminal-based Kanban board"
 
@@ -275,21 +277,39 @@ def get_input(stdscr, y, x, prompt, initial_value="", color_pair=0, input_width=
         curses.curs_set(0)
         return initial_value
 
-def display_message(stdscr, message, duration=1.5, color_pair=0):
-    """Displays a temporary message at the bottom of the screen."""
-    height, width = stdscr.getmaxyx()
+# Global message state
+current_message = None
+message_timestamp = 0
+
+def display_message_non_blocking(stdscr, message, duration=1.5, color_pair=0):
+    """Display message without blocking."""
+    global current_message, message_timestamp
+    current_message = (message, color_pair)
+    message_timestamp = time.time() + duration
+
+def update_message_display(stdscr):
+    """Update message display - call in main loop. Returns True if display changed."""
+    global current_message, message_timestamp
+
     try:
-        # Clear the message area
-        stdscr.addstr(height - 1, 0, " " * (width - 1))
-        # Display the message
-        stdscr.addstr(height - 1, 0, message[:width-1], color_pair)
-        stdscr.refresh()
-        time.sleep(duration)
-        # Clear the message
-        stdscr.addstr(height - 1, 0, " " * (width - 1))
-        stdscr.refresh()
+        height, width = stdscr.getmaxyx()
+        message_row = height - 1
+        message_changed = False
+
+        if current_message and time.time() < message_timestamp:
+            # Display current message
+            text, color_pair = current_message
+            stdscr.addstr(message_row, 0, " " * (width - 1))
+            stdscr.addstr(message_row, 0, text[:width-1], color_pair)
+        elif current_message and time.time() >= message_timestamp:
+            # Clear expired message
+            current_message = None
+            stdscr.addstr(message_row, 0, " " * (width - 1))
+            message_changed = True
+
+        return message_changed
     except curses.error:
-        pass
+        return False
 
 def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_colors):
     """Display a modal for managing projects."""
@@ -386,11 +406,11 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
                 selected_idx = project_names.index(new_name)
                 # Save data after project creation
                 save_data(all_projects_data)
-                display_message(stdscr, f"Created project: {new_name}", 1.0,
-                              curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                display_message_non_blocking(stdscr, f"Created project: {new_name}", 1.0,
+                                            curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
             elif new_name in all_projects_data:
-                display_message(stdscr, "Project already exists!", 1.5,
-                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                display_message_non_blocking(stdscr, "Project already exists!", 1.5,
+                                            curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
         elif is_key_pressed(key, 'r'):
             # Rename project
             if project_names:
@@ -415,18 +435,18 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
 
                         # Save data after project rename
                         save_data(all_projects_data)
-                        display_message(stdscr, f"Renamed project: {old_name} → {new_name}", 1.5,
-                                      curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                        display_message_non_blocking(stdscr, f"Renamed project: {old_name} → {new_name}", 1.5,
+                                                    curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
 
                         # If we renamed the current project, return the new name
                         if old_name == current_project_name:
                             current_project_name = new_name
                     else:
-                        display_message(stdscr, "Project name already exists!", 1.5,
-                                      curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                        display_message_non_blocking(stdscr, "Project name already exists!", 1.5,
+                                                    curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
                 elif new_name == old_name:
-                    display_message(stdscr, "Project name unchanged.", 1.0,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    display_message_non_blocking(stdscr, "Project name unchanged.", 1.0,
+                                                curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
         elif is_key_pressed(key, 'd'):
             # Delete project (with confirmation)
             if len(project_names) > 1:
@@ -440,13 +460,13 @@ def manage_projects_modal(stdscr, all_projects_data, current_project_name, has_c
                         selected_idx = len(project_names) - 1
                     # Save data after project deletion
                     save_data(all_projects_data)
-                    display_message(stdscr, f"Deleted project: {project_to_delete}", 1.0,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    display_message_non_blocking(stdscr, f"Deleted project: {project_to_delete}", 1.0,
+                                                curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                     if project_to_delete == current_project_name:
                         return project_names[selected_idx] if project_names else DEFAULT_PROJECT_NAME
             else:
-                display_message(stdscr, "Cannot delete the last project!", 1.5,
-                              curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                display_message_non_blocking(stdscr, "Cannot delete the last project!", 1.5,
+                                            curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
         elif is_key_pressed(key, 'q') or key == 27:  # 'q' or ESC
             return current_project_name
 
@@ -707,19 +727,41 @@ def main(stdscr):
     current_column_idx = 0  # Start in the first column
     current_task_idx_in_col = 0  # Start with the first task in the column
 
-    # Auto-save helper function
+    # Background save queue
+    save_queue = Queue()
+    save_in_progress = False
+
+    def save_worker():
+        """Background thread to handle saves."""
+        nonlocal save_in_progress
+        while True:
+            try:
+                data, show_feedback = save_queue.get(timeout=0.1)
+                save_in_progress = True
+                try:
+                    save_data(data)
+                    if show_feedback:
+                        display_message_non_blocking(stdscr, "💾 Saved", 0.5,
+                                                    curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                except Exception:
+                    display_message_non_blocking(stdscr, "Save failed", 1.0,
+                                                curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                finally:
+                    save_in_progress = False
+                    save_queue.task_done()
+            except Empty:
+                continue
+            except:
+                break
+
+    # Start background save thread
+    save_thread = threading.Thread(target=save_worker, daemon=True)
+    save_thread.start()
+
+    # Non-blocking auto-save helper function
     def auto_save(show_message=False):
         try:
-            save_data(all_projects_data)
-            if show_message:
-                try:
-                    height, width = stdscr.getmaxyx()
-                    stdscr.addstr(height - 1, width - 10, "💾 Saved",
-                                curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
-                    stdscr.refresh()
-                    time.sleep(0.3)
-                except curses.error:
-                    pass
+            save_queue.put((all_projects_data.copy(), show_message))
         except Exception as e:
             # If save fails, we don't want to crash the app
             pass
@@ -740,12 +782,29 @@ def main(stdscr):
             # Draw the board
             draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
 
-            # Get user input
-            try:
-                key = stdscr.getch()
-            except curses.error:
-                # If getch fails, break out of loop
-                break
+            # Update messages and only refresh if something changed
+            message_changed = update_message_display(stdscr)
+            if message_changed:
+                stdscr.refresh()
+
+            # Get user input - use blocking input to eliminate flickering
+            # Only use timeout when we have active messages
+            if current_message:
+                stdscr.timeout(500)  # 500ms timeout only when messages are active
+                try:
+                    key = stdscr.getch()
+                    if key == -1:  # No input received within timeout
+                        continue
+                except curses.error:
+                    break
+                finally:
+                    stdscr.timeout(-1)
+            else:
+                # No active messages - use blocking input for best performance
+                try:
+                    key = stdscr.getch()
+                except curses.error:
+                    break
 
             # Handle navigation
             if key == curses.KEY_LEFT:
@@ -812,8 +871,8 @@ def main(stdscr):
                     # Auto-save after adding task
                     auto_save(show_message=True)
 
-                    display_message(stdscr, f"Added task: {title}", 1.0,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    display_message_non_blocking(stdscr, f"Added task: {title}", 1.0,
+                                                        curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
 
             elif is_key_pressed(key, 'e'):
                 # Edit task
@@ -840,11 +899,11 @@ def main(stdscr):
                         # Auto-save after editing task
                         auto_save(show_message=True)
 
-                        display_message(stdscr, "Task updated", 1.0,
-                                      curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                        display_message_non_blocking(stdscr, "Task updated", 1.0,
+                                                            curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                 else:
-                    display_message(stdscr, "No task to edit", 1.0,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                    display_message_non_blocking(stdscr, "No task to edit", 1.0,
+                                                        curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
             elif is_key_pressed(key, 'm'):
                 # Enter move mode - use arrow keys to move tasks
@@ -852,27 +911,41 @@ def main(stdscr):
                     task = current_col_tasks[current_task_idx_in_col]
 
                     # Display move mode instructions
-                    display_message(stdscr, "Move mode: ← → (columns) ↑ ↓ (reorder) | Enter: confirm | Esc: cancel", 0.1,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                    display_message_non_blocking(stdscr, "Move mode: ← → (columns) ↑ ↓ (reorder) | Enter: confirm | Esc: cancel", 0.1,
+                                                        curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
 
                     move_mode = True
                     original_col_idx = current_column_idx
                     original_task_idx = current_task_idx_in_col
 
+                    # Initial draw for move mode
+                    draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
+
+                    # Show move mode status
+                    height, width = stdscr.getmaxyx()
+                    move_msg = "MOVE MODE: ← → (columns) ↑ ↓ (reorder) | Enter: confirm | Esc: cancel"
+                    try:
+                        stdscr.addstr(height - 1, 0, move_msg[:width-1],
+                                    curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                        stdscr.refresh()
+                    except curses.error:
+                        pass
+
+                    redraw_needed = False
                     while move_mode:
-                        # Redraw board to show current position
-                        draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
+                        # Only redraw if position changed
+                        if redraw_needed:
+                            draw_board(stdscr, tasks_data, current_column_idx, current_task_idx_in_col, current_project_name, has_colors)
+                            # Show move mode status
+                            try:
+                                stdscr.addstr(height - 1, 0, move_msg[:width-1],
+                                            curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                                stdscr.refresh()
+                            except curses.error:
+                                pass
+                            redraw_needed = False
 
-                        # Show move mode status
-                        height, width = stdscr.getmaxyx()
-                        move_msg = "MOVE MODE: ← → (columns) ↑ ↓ (reorder) | Enter: confirm | Esc: cancel"
-                        try:
-                            stdscr.addstr(height - 1, 0, move_msg[:width-1],
-                                        curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
-                            stdscr.refresh()
-                        except curses.error:
-                            pass
-
+                        # Use blocking input in move mode for better performance
                         move_key = stdscr.getch()
 
                         if move_key == curses.KEY_LEFT:
@@ -890,6 +963,7 @@ def main(stdscr):
                                 current_column_idx = new_col_idx
                                 current_task_idx_in_col = len(tasks_data[new_column]) - 1
                                 current_col_tasks = tasks_data[DEFAULT_COLUMNS[current_column_idx]]
+                                redraw_needed = True
 
                         elif move_key == curses.KEY_RIGHT:
                             # Move to next column
@@ -906,6 +980,7 @@ def main(stdscr):
                                 current_column_idx = new_col_idx
                                 current_task_idx_in_col = len(tasks_data[new_column]) - 1
                                 current_col_tasks = tasks_data[DEFAULT_COLUMNS[current_column_idx]]
+                                redraw_needed = True
 
                         elif move_key == curses.KEY_UP:
                             # Move task up in current column
@@ -914,6 +989,7 @@ def main(stdscr):
                                 current_col_tasks[current_task_idx_in_col], current_col_tasks[current_task_idx_in_col - 1] = \
                                     current_col_tasks[current_task_idx_in_col - 1], current_col_tasks[current_task_idx_in_col]
                                 current_task_idx_in_col -= 1
+                                redraw_needed = True
 
                         elif move_key == curses.KEY_DOWN:
                             # Move task down in current column
@@ -922,6 +998,7 @@ def main(stdscr):
                                 current_col_tasks[current_task_idx_in_col], current_col_tasks[current_task_idx_in_col + 1] = \
                                     current_col_tasks[current_task_idx_in_col + 1], current_col_tasks[current_task_idx_in_col]
                                 current_task_idx_in_col += 1
+                                redraw_needed = True
 
                         elif move_key == ord('\n') or move_key == curses.KEY_ENTER or move_key == 10:
                             # Confirm move
@@ -930,11 +1007,11 @@ def main(stdscr):
 
                             if (current_column_idx != original_col_idx or
                                 current_task_idx_in_col != original_task_idx):
-                                display_message(stdscr, "Task moved successfully!", 1.0,
-                                              curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                                display_message_non_blocking(stdscr, "Task moved successfully!", 0.8,
+                                                                    curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                             else:
-                                display_message(stdscr, "Task position unchanged", 0.5,
-                                              curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                                display_message_non_blocking(stdscr, "Task position unchanged", 0.5,
+                                                            curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
 
                         elif move_key == 27:  # ESC key
                             # Cancel move - restore original position
@@ -957,14 +1034,14 @@ def main(stdscr):
                                 current_col_tasks.insert(original_task_idx, task)
                                 current_task_idx_in_col = original_task_idx
 
-                            display_message(stdscr, "Move cancelled", 0.5,
-                                          curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                            display_message_non_blocking(stdscr, "Move cancelled", 0.5,
+                                                                curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
                         # Update current_col_tasks reference
                         current_col_tasks = tasks_data.get(DEFAULT_COLUMNS[current_column_idx], [])
                 else:
-                    display_message(stdscr, "No task to move", 1.0,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                    display_message_non_blocking(stdscr, "No task to move", 1.0,
+                                                        curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
             elif is_key_pressed(key, 'd'):
                 # Delete task with confirmation
@@ -985,13 +1062,13 @@ def main(stdscr):
                         # Auto-save after deleting task
                         auto_save(show_message=True)
 
-                        display_message(stdscr, "Task deleted", 1.0,
-                                      curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
+                        display_message_non_blocking(stdscr, "Task deleted", 1.0,
+                                                            curses.color_pair(COLOR_PAIR_MESSAGE_INFO) if has_colors else 0)
                     else:
-                        display_message(stdscr, "Deletion cancelled", 0.5)
+                        display_message_non_blocking(stdscr, "Deletion cancelled", 0.5)
                 else:
-                    display_message(stdscr, "No task to delete", 0.5,
-                                  curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
+                    display_message_non_blocking(stdscr, "No task to delete", 0.5,
+                                                curses.color_pair(COLOR_PAIR_MESSAGE_ERROR) if has_colors else 0)
 
             elif key == curses.KEY_RESIZE:
                 # Handle terminal resize
@@ -1000,7 +1077,7 @@ def main(stdscr):
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully
         try:
-            auto_save()
+            save_data(all_projects_data)
         except:
             pass
         # curses.wrapper will handle terminal cleanup
@@ -1008,14 +1085,14 @@ def main(stdscr):
     except curses.error:
         # Handle curses errors gracefully
         try:
-            auto_save()
+            save_data(all_projects_data)
         except:
             pass
         return
 
-    # Final save before exiting (auto_save also called throughout)
+    # Final save before exiting (sync save for immediate completion)
     try:
-        auto_save()
+        save_data(all_projects_data)
     except:
         pass
 
